@@ -15,9 +15,19 @@ const DealCards: React.FC = () => {
       const response = await axios.post("http://127.0.0.1:5000/share_cards", {
         cards_to_deal: cardsToDeal,
       });
+      console.log("API Response:", response.data);
+
       console.log(response.data); // Handle successful card sharing
       // Navigate to PlayersCards page with player data
-      navigate("/players", { state: { players: response.data.players } });
+      navigate("/players", {
+        state: navigate("/players", {
+          state: {
+            players: response.data.players,
+            discard_pile: response.data.discard_pile,
+            deck: response.data.deck,
+          },
+        }),
+      });
     } catch (error) {
       console.error("Error sharing cards:", error);
     }

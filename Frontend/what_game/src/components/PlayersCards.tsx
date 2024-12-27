@@ -1,14 +1,73 @@
-import React from "react";
-import { useLocation } from "react-router-dom";
+import axios from "axios";
+import React, { useEffect, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 
 const PlayersCards: React.FC = () => {
   const location = useLocation();
-  const { players, discard_pile } = location.state || {}; // Get players data passed from DealCards
+  const { players, discard_pile, deck } = location.state || {}; // Get players, discard pile, and deck from state
+  const navigate = useNavigate();
+  const [gameStarted, setGameStarted] = useState(false);
+  // const [gameStatus, setGameStatus] = useState(null);
+  interface GameStatus {
+    current_player: string;
+    // Add other properties as needed
+  }
 
+  const [gameStatus, setGameStatus] = useState<GameStatus | null>(null);
   const getCardImage = (card: string) => {
-    // Replace spaces with underscores and use lowercase for file names
     const formattedCard = card.replace(/ /g, "_");
-    return `/cards/${formattedCard}.png`;
+    const imagePath = `/cards/${formattedCard}.png`;
+    return imagePath;
+  };
+
+  useEffect(() => {
+    if (discard_pile && discard_pile.length > 0) {
+      const imagePath = getCardImage(discard_pile);
+      console.log("Generated Image Path for Discard Pile:", imagePath);
+    }
+  }, [discard_pile]);
+
+  const startGame = async () => {
+    try {
+      const response = await axios.get("http://127.0.0.1:5000/start");
+      console.log("Game started:", response.data);
+      setGameStarted(true);
+      setGameStatus(response.data);
+    } catch (error) {
+      console.error("Error starting the game:", error);
+    }
+  };
+
+  useEffect(() => {
+    const fetchGameStatus = async () => {
+      try {
+        const response = await axios.get("http://127.0.0.1:5000/status");
+        setGameStatus(response.data);
+      } catch (error) {
+        console.error("Error fetching game status:", error);
+      }
+    };
+    fetchGameStatus();
+  }, []);
+
+  // Function to handle player actions
+  const handlePlayerAction = async (
+    playerName: string,
+    action: string,
+    index?: number
+  ) => {
+    try {
+      const response = await axios.post("http://127.0.0.1:5000/play", {
+        player_name: playerName,
+        action: action,
+        index: index,
+      });
+      console.log("Action response:", response.data);
+      // Update the game status after the action
+      setGameStatus(response.data);
+    } catch (error) {
+      console.error("Error playing turn:", error);
+    }
   };
 
   const renderPlayerCards = (player: any, index: number) => (
@@ -43,8 +102,9 @@ const PlayersCards: React.FC = () => {
                     alt={card}
                     className="h-12 sm:h-16 object-contain"
                     onError={(e) => {
-                      e.currentTarget.src = "/cards/fallback.png"; // Fallback image for missing cards
+                      e.currentTarget.src = "/cards/fallback.png";
                     }}
+                    onClick={() => handlePlayerAction(player.name, "play", i)} // Play card on click
                   />
                 </div>
               ))
@@ -56,20 +116,61 @@ const PlayersCards: React.FC = () => {
 
   return (
     <div className="relative bg-custom bg-blue-50 h-[100vh] w-[100vw] flex items-center justify-center">
-      {/* Center Area for the Game */}
-      <div className="absolute bg-white shadow-lg rounded-full h-40 w-40 sm:h-48 sm:w-48 flex items-center justify-center">
-        {discard_pile && discard_pile.length > 0 ? (
+      {/* Overlay for Start Game Button */}
+      {!gameStarted && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="bg-white p-8 rounded-lg shadow-lg text-center">
+            <h2 className="text-3xl font-bold mb-4">Start Game</h2>
+            <p className="mb-4">Click below to start the game.</p>
+            <button
+              onClick={startGame}
+              className="bg-blue-500 text-white py-2 px-4 rounded-lg"
+            >
+              Start Game
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Center Area for Deck and Discard Pile */}
+      <div className="flex items-center justify-center gap-8">
+        {/* Deck */}
+        <div className="flex flex-col items-center">
           <img
-            src={getCardImage(discard_pile[discard_pile.length - 1])}
-            alt="Discard Pile"
-            className="h-32 sm:h-40 object-contain"
+            src="/cards/whot.png"
+            alt="Deck"
+            className="h-32 sm:h-40 object-contain shadow-lg"
             onError={(e) => {
-              e.currentTarget.src = "/cards/fallback.png"; // Fallback image for missing cards
+              e.currentTarget.src = "/cards/whot.png";
             }}
+            onClick={() =>
+              handlePlayerAction(gameStatus?.current_player ?? "", "draw")
+            } // Draw card on click
           />
-        ) : (
-          <p className="text-base sm:text-lg font-bold">Game Area</p>
-        )}
+          <p className="text-center text-sm sm:text-lg font-bold mt-2">
+            {deck?.length || 0} Cards
+          </p>
+        </div>
+
+        {/* Discard Pile */}
+        <div className="flex flex-col items-center">
+          {discard_pile && discard_pile.length > 0 ? (
+            <img
+              src={getCardImage(discard_pile)} // Show last card in discard pile
+              alt="Discard Pile"
+              className="h-32 sm:h-40 object-contain shadow-lg"
+              onError={(e) => {
+                e.currentTarget.src = "/cards/fallback.png";
+              }}
+            />
+          ) : (
+            <div className="h-32 sm:h-40 w-24 sm:w-32 bg-gray-200 flex items-center justify-center rounded-lg shadow-lg">
+              <p className="text-center text-sm sm:text-lg font-bold">
+                Discard Pile
+              </p>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Render Players */}

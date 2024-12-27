@@ -35,48 +35,45 @@ def share_cards():
         game.deal_cards(cards_to_deal)  # Call method to deal cards
         return jsonify({
             "message": "Cards have been dealt successfully.",
-            "players": [{"name": player.name, "hand": player.show_hand()} for player in game.players]
+            "players": [{"name": player.name, "hand": player.show_hand()} for player in game.players],
+            "deck" : [str(card) for card in game.deck.cards],
+            "discard_pile": str(game.discard_pile[-1]) if game.discard_pile else None,
         })
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
+
 @app.route("/start", methods=["GET"])
 def start_game():
-    """
-    Start the game after players have been initialized.
-    """
     if not game:
         return jsonify({"error": "Game not set up. Please use /setup to initialize players."}), 400
 
-    # Start dealing cards and setting up the discard pile
-    game.start_game()
-    
-    return jsonify({
-        "message": "Game started",
-        "discard_pile": str(game.discard_pile[-1]) if game.discard_pile else None,
-        "players": [{"name": player.name, "hand": player.show_hand()} for player in game.players]
-    })
-
+    try:
+        game.start_game()
+        return jsonify({
+            "message": "Game started",
+            "discard_pile": str(game.discard_pile[-1]) if game.discard_pile else None,
+            "players": [{"name": player.name, "hand": player.show_hand()} for player in game.players]
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 @app.route("/play", methods=["POST"])
 def play_turn():
-    """
-    Handle a player's action (play a card or draw).
-    """
     if not game:
         return jsonify({"error": "Game not set up. Please use /setup to initialize players."}), 400
 
     data = request.json
-    player_name = data["player_name"]
+    player_name = data.get("player_name")
+    action = data.get("action")
 
-    # Find the current player
+    if not player_name or not action:
+        return jsonify({"error": "Missing player_name or action in request."}), 400
+
     current_player = next((player for player in game.players if player.name == player_name), None)
-    
     if not current_player:
         return jsonify({"error": f"Player {player_name} not found."}), 404
 
-    # Handle computer players
-    if current_player.is_computer:
-        action = current_player.choose_action(game.discard_pile[-1], game.current_shape)
+    try:
         if action == "draw":
             if not game.deck.is_empty():
                 drawn_card = game.deck.pop_card(0)
@@ -85,37 +82,23 @@ def play_turn():
             else:
                 return jsonify({"error": "The deck is empty! Cannot draw a card."}), 400
 
-        elif action.startswith("play"):
-            _, index_str = action.split()
-            index = int(index_str)
-            card_to_play = current_player.hand[index]
-            game.discard_pile.append(current_player.remove_card(index))
-            return jsonify({"message": f"{player_name} played {card_to_play}.", "hand": current_player.show_hand()})
-    else:
-        # Handle human players
-        action = data["action"]
-        if action["action"] == "draw":
-            if not game.deck.is_empty():
-                drawn_card = game.deck.pop_card(0)
-                current_player.add_card(drawn_card)
-                return jsonify({"message": f"{player_name} drew a card.", "hand": current_player.show_hand()})
-            else:
-                return jsonify({"error": "The deck is empty! Cannot draw a card."}), 400
-
-        elif action["action"] == "play":
-            index = action.get("index")
+        elif action == "play":
+            index = data.get("index")
             if index is None or index < 0 or index >= len(current_player.hand):
                 return jsonify({"error": "Invalid card index."}), 400
             
             card_to_play = current_player.hand[index]
-            game.discard_pile.append(current_player.remove_card(index))
-            return jsonify({"message": f"{player_name} played {card_to_play}.", "hand": current_player.show_hand()})
+            if game.can_play_card(card_to_play):
+                game.discard_pile.append(current_player.remove_card(index))
+                return jsonify({"message": f"{player_name} played {card_to_play}.", "hand": current_player.show_hand()})
+            else:
+                return jsonify({"error": "Card cannot be played on the current discard pile."}), 400
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 @app.route("/status", methods=["GET"])
 def game_status():
-    """
-    Get the current status of the game.
-    """
     if not game:
         return jsonify({"error": "Game not set up. Please use /setup to initialize players."}), 400
 
@@ -124,7 +107,6 @@ def game_status():
         "players": [{"name": player.name, "hand_size": len(player.hand)} for player in game.players],
         "current_turn": game.players[game.current_player_index].name
     }
-    
     return jsonify(status)
 
 if __name__ == "__main__":

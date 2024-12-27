@@ -88,10 +88,14 @@ class WhotGame:
         self.current_shape = None
 
     def start_game(self):
+    # Ensure the deck is not empty
         if not self.deck.is_empty():
+        # Deal the first card to the discard pile
             initial_card = self.deck.pop_card(0)
             self.discard_pile.append(initial_card)
             self.current_shape = initial_card.get_shape()
+            print(f"Starting card on the discard pile: {initial_card}")
+
 
     def deal_cards(self, cards_to_deal: int):
         if cards_to_deal < 1 or cards_to_deal > 5:
@@ -102,6 +106,11 @@ class WhotGame:
             for _ in range(cards_to_deal):
                 if not self.deck.is_empty():
                     player.add_card(self.deck.pop_card(0))
+
+        # Ensure a card is placed in the discard pile
+        if not self.discard_pile:
+            self.start_game()
+
 
     def apply_special_card_effect(self, card: Card):
         special_card_effects = {
@@ -148,7 +157,24 @@ class WhotGame:
                 if not self.deck.is_empty():
                     player.add_card(self.deck.pop_card(0))
         return False
+    def can_play_card(self, card: Card) -> bool:
+        """
+        Check if a card can be played based on the current game state.
+        """
+        if not self.discard_pile:
+            return True  # Any card can be played if the discard pile is empty.
 
+        top_card = self.discard_pile[-1]
+
+        # A card can be played if:
+        # 1. It matches the shape or number of the top card.
+        # 2. It is a Whot card (special card).
+        if card.get_shape() == top_card.get_shape() or card.get_number() == top_card.get_number():
+            return True
+        if card.get_shape() == "Whot":
+            return True
+        return False
+    
     def next_turn(self):
         current_player = self.players[self.current_player_index]
         print(f"\n{current_player.name}'s turn.")
@@ -169,11 +195,7 @@ class WhotGame:
             index = int(index_str)
             if 0 <= index < len(current_player.hand):
                 card_to_play = current_player.hand[index]
-                top_card = self.discard_pile[-1]
-
-                if (card_to_play.get_shape() == top_card.get_shape() or
-                        card_to_play.get_number() == top_card.get_number() or
-                        card_to_play.get_shape() == "Whot"):
+                if self.can_play_card(card_to_play):
                     self.discard_pile.append(current_player.remove_card(index))
                     print(f"{current_player.name} played {card_to_play}.")
 
@@ -190,10 +212,8 @@ class WhotGame:
                                 self.current_shape = input("Invalid shape. Choose again: ")
                         print(f"Next shape is now {self.current_shape}.")
                         return
-
                 else:
                     print("You cannot play that card!")
-                    return
             else:
                 print("Invalid index!")
 
