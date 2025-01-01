@@ -20,13 +20,11 @@ const DealCards: React.FC = () => {
       console.log(response.data); // Handle successful card sharing
       // Navigate to PlayersCards page with player data
       navigate("/players", {
-        state: navigate("/players", {
-          state: {
-            players: response.data.players,
-            discard_pile: response.data.discard_pile,
-            deck: response.data.deck,
-          },
-        }),
+        state: {
+          players: response.data.players,
+          discard_pile: response.data.discard_pile,
+          deck: response.data.deck,
+        },
       });
     } catch (error) {
       console.error("Error sharing cards:", error);
@@ -34,20 +32,29 @@ const DealCards: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-blue-50 p-4">
-      <h2 className="text-3xl font-bold mb-6">Deal Cards</h2>
-      <div className="mt-4">
-        <label className="mr-2">Number of Cards to Deal:</label>
-        <input
-          type="number"
-          min="1"
-          max="5"
-          value={cardsToDeal}
-          onChange={(e) => setCardsToDeal(Number(e.target.value))}
-          className="border border-gray-300 rounded-lg p-2"
+    <div className=" flex items-center justify-center bg-[#097969] p-4 h-[100vh] w-[100vw] ">
+      <div
+        className="flex flex-col items-center justify-center  bg-white p-4 rounded-lg
+      "
+      >
+        <h2 className="text-3xl font-bold mb-6">Deal Cards</h2>
+        <div className="mt-4">
+          <label className="mr-2">Number of Cards to Deal:</label>
+          <input
+            type="number"
+            min="1"
+            max="5"
+            value={cardsToDeal}
+            onChange={(e) => setCardsToDeal(Number(e.target.value))}
+            className="border border-gray-300 rounded-lg p-2"
+          />
+        </div>
+        <Button
+          onClick={handleShareCards}
+          label="Share Cards"
+          className="mt-6 bg-[#581845] hover:bg-slate-500"
         />
       </div>
-      <Button onClick={handleShareCards} label="Share Cards" className="mt-6" />
     </div>
   );
 };
